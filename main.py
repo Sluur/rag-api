@@ -1,11 +1,14 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from rag import load_index, build_chain
+from langchain_core.messages import HumanMessage, AIMessage
+from rag import load_index, build_chain, MAX_HISTORY
 
 app = FastAPI(title="RAG API")
 
 chain = None
 retriever = None
+
+conversation_history = []
 
 @app.on_event("startup")
 async def startup():
@@ -17,17 +20,37 @@ async def startup():
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "index_loaded": chain is not None}
+    return {
+        "status": "ok",
+        "index_loaded": chain is not None,
+        "history_length": len(conversation_history)
+    }
+
+@app.delete("/history")
+def clear_history():
+    global conversation_history
+    conversation_history = []
+    return {"message": "Historial limpiado"}
 
 class Question(BaseModel):
     question: str
 
 @app.post("/ask")
 def ask(body: Question):
+    global conversation_history
+
     if not chain:
         raise HTTPException(status_code=503, detail="Índice no cargado")
 
-    answer = chain.invoke(body.question)
+    limited_history = conversation_history[-MAX_HISTORY:]
+
+    answer = chain.invoke({
+        "question": body.question,
+        "history": limited_history
+    })
+
+    conversation_history.append(HumanMessage(content=body.question))
+    conversation_history.append(AIMessage(content=answer))
 
     docs = retriever.invoke(body.question)
     sources = list(set(
@@ -37,5 +60,6 @@ def ask(body: Question):
 
     return {
         "answer": answer,
-        "sources": sources
+        "sources": sources,
+        "history_length": len(conversation_history)
     }
