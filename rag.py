@@ -23,8 +23,8 @@ def load_index():
             all_docs.extend(loader.load())
 
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=800,
-        chunk_overlap=150
+        chunk_size=1200,  
+        chunk_overlap=200  
     )
     chunks = splitter.split_documents(all_docs)
 
@@ -43,20 +43,20 @@ def build_chain(index):
     )
 
     prompt = ChatPromptTemplate.from_messages([
-        ("system", """Sos un asistente que responde preguntas basándose únicamente en el siguiente contexto.
+    ("system", """Sos un asistente que responde preguntas basándose únicamente en el siguiente contexto.
 Si la respuesta no está en el contexto, decí exactamente: "No encontré esa información en los documentos."
-No inventes información.
+No inventes información. Si te piden una lista o conteo, sé exhaustivo con lo que aparece en el contexto.
 
 Contexto:
 {context}"""),
-        MessagesPlaceholder(variable_name="history"),
-        ("human", "{question}"),
-    ])
+    MessagesPlaceholder(variable_name="history"),
+    ("human", "{question}"),
+])
 
     def format_docs(docs):
         return "\n\n".join(doc.page_content for doc in docs)
 
-    retriever = index.as_retriever(search_kwargs={"k": 4})
+    retriever = index.as_retriever(search_kwargs={"k": 6}) 
 
     chain = (
         {

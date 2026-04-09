@@ -1,13 +1,21 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from langchain_core.messages import HumanMessage, AIMessage
 from rag import load_index, build_chain, MAX_HISTORY
 
 app = FastAPI(title="RAG API")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 chain = None
 retriever = None
-
 conversation_history = []
 
 @app.on_event("startup")
@@ -38,12 +46,10 @@ class Question(BaseModel):
 @app.post("/ask")
 def ask(body: Question):
     global conversation_history
-
     if not chain:
         raise HTTPException(status_code=503, detail="Índice no cargado")
 
     limited_history = conversation_history[-MAX_HISTORY:]
-
     answer = chain.invoke({
         "question": body.question,
         "history": limited_history
